@@ -1,6 +1,8 @@
 import unittest
 
-from pyspark.sql.functions import collect_list, col
+from pyspark.sql.functions import collect_list, col, from_json, get_json_object, when
+from pyspark.sql.types import *
+
 from src.shared.SparkUtil import SparkUtil
 
 
@@ -45,3 +47,25 @@ A   | b   | e   |time_1   |0.2   |0.3    |0.6
                  collect_list(col("thing2")))
 
         ans.show()
+
+    def test_run_example3(self):
+        df = self.spark.createDataFrame(['[{"key": "value1"}, {"key": "value2"}]'], StringType())
+        df.show(1, False)
+        schema = ArrayType(StructType([StructField("key", StringType(), True)]))
+
+        df = df.withColumn("json", from_json("value", schema))
+        df.show()
+
+    def test_run_example2(self):
+        df = self.spark.createDataFrame(['{"a":1}', '{"a":1, "b":2}', '{"a":1, "b":2, "c":3}'], StringType())
+
+        df.show(3, False)
+
+        df = df.withColumn("a", get_json_object("value", '$.a')) \
+            .withColumn("b",
+                        when(get_json_object("value", '$.b').isNotNull(), get_json_object("value", '$.b')).otherwise(0)) \
+            .withColumn("c",
+                        when(get_json_object("value", '$.c').isNotNull(), get_json_object("value", '$.c')).otherwise(0))
+
+        df.show(3, False)
+        df.printSchema()
