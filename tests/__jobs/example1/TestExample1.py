@@ -1,6 +1,6 @@
 import unittest
 
-from pyspark.sql.functions import collect_list, col, from_json, get_json_object, when
+from pyspark.sql.functions import collect_list, col, from_json, get_json_object, when, explode
 from pyspark.sql.types import *
 
 from src.shared.SparkUtil import SparkUtil
@@ -69,3 +69,24 @@ A   | b   | e   |time_1   |0.2   |0.3    |0.6
 
         df.show(3, False)
         df.printSchema()
+
+    def test_run_example4(self):
+        """
+        https://stackoverflow.com/questions/55947954/
+        :return:
+        """
+        df = self.spark.createDataFrame(
+            [('001', '[{"index": 1}, {"index": 2}]'),
+             ('002', '[{"index": 3}, {"index": 4}]'),
+             ],
+            ("id", "data"))
+
+        schema = ArrayType(StructType([StructField("index", IntegerType())]))
+        df = df.withColumn("json", from_json("data", schema))
+        df.printSchema()
+        df.show(100)
+        df = df.select(col("id"), explode("json").alias("index")) \
+            .select(col("id"), col("index").index)
+
+        df.printSchema()
+        df.show(100)
