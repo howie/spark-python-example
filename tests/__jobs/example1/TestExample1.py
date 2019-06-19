@@ -1,7 +1,8 @@
 import unittest
 
-from pyspark.sql.functions import collect_list, col, from_json, get_json_object, when, explode
+from pyspark.sql.functions import collect_list, col, from_json, get_json_object, when, explode, last
 from pyspark.sql.types import *
+from pyspark.sql.window import Window
 
 from src.shared.SparkUtil import SparkUtil
 
@@ -90,3 +91,29 @@ A   | b   | e   |time_1   |0.2   |0.3    |0.6
 
         df.printSchema()
         df.show(100)
+
+    def test_run_example5(self):
+        """
+        https://stackoverflow.com/questions/56637690/spark-window-function-last-not-null-value
+        :return:
+        """
+        df = self.spark.createDataFrame(
+            [('2019-06-06 14:33:31', 'user_a', 'choose_ticket', 'ticke_b', None),
+             ('2019-06-06 14:34:31', 'user_b', 'choose_ticket', 'ticke_f', None),
+             ('2019-06-06 14:36:31', 'user_a', 'booing_error', None, 'error_c'),
+             ('2019-06-06 14:37:31', 'user_a', 'choose_ticket', 'ticke_h', None),
+             ('2019-06-06 14:38:31', 'user_a', 'booing_error', None, 'error_d'),
+             ('2019-06-06 14:39:31', 'user_a', 'booing_error', None, 'error_e'),
+             ],
+            ("timestamp", "user_id", "event", "ticke_type", "error_type"))
+
+        df.show()
+
+        window_spec = Window.partitionBy(col("user_id")).orderBy(col("timestamp"))
+
+        df = df.withColumn('ticke_type_forwardfill', when(col("event") == "choose_ticket", col("ticke_type")) \
+                           .otherwise(last("ticke_type", True).over(window_spec))) \
+            .drop(col("ticke_type")) \
+            .filter(col("event") == "booing_error")
+
+        df.show()
